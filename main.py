@@ -28,6 +28,8 @@ def update_data(config = None):
     search_date = today.strftime('%-m/%-d/%Y')
     today_cell = ws.find(search_date)
 
+    if 'COLUMN_DATE_UPDATED' in config:
+        ws.update_cell(today_cell.row, config['COLUMN_DATE_UPDATED'], today.strftime('%d.%m.%Y, %H:%M'))
     ws.update_cell(today_cell.row, config['COLUMN_DATE_ON_WEB'], new_data[0])
     ws.update_cell(today_cell.row, config['COLUMN_CASES_ON_WEB'], new_data[1])
 
