@@ -43,17 +43,10 @@ def get_new_data_cz():
 
     counter = tree.get_element_by_id("count-sick")
 
-    #prev span with date of update
-    #date in <strong>
     date = counter.getprevious() \
            .getchildren()[0]
 
     ret[0] = date.text.strip().replace(u'\xa0', ' ')
-
-    #select last box
-    #select number
-    #item = counter.getchildren()[2] \
-    #       .getchildren()[1]
 
     ret[1] = counter.text.replace(" ", "")
     return ret
@@ -67,7 +60,6 @@ def get_new_data_sk():
 
     ret[1] = decoded_json['tiles']['k26']['data']['d'][-1]['v']
     ret[0] = decoded_json['tiles']['k26']['updated']
-
 
     return ret
 
