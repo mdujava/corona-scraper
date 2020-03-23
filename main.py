@@ -2,6 +2,7 @@
 import requests
 import gspread
 import datetime
+import json
 from oauth2client.service_account import ServiceAccountCredentials
 from lxml import html
 
@@ -60,24 +61,14 @@ def get_new_data_cz():
 def get_new_data_sk():
     ret = [None, None]
 
-    page = requests.get('https://www.korona.gov.sk/')
-    tree = html.fromstring(page.content)
+    page = requests.get('https://virus-korona.sk/api.php')
 
-    counter = tree.find_class("covd-counter")[0]
+    decoded_json = json.loads(page.text)
 
-    #prev span with date of update
-    #date in <strong>
-    date = counter.getprevious() \
-           .getchildren()[0]
+    ret[1] = decoded_json['tiles']['k26']['data']['d'][-1]['v']
+    ret[0] = decoded_json['tiles']['k26']['updated']
 
-    ret[0] = date.text.strip()
 
-    #select last box
-    #select number
-    item = counter.getchildren()[2] \
-           .getchildren()[1]
-
-    ret[1] = item.text
     return ret
 
 def czech():
