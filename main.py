@@ -65,7 +65,8 @@ def get_new_data_sk():
 
 def czech():
     config = {'COLUMN_CASES_ON_WEB' : 3,
-              'COLUMN_DATE_ON_WEB'  : 6,
+              'COLUMN_DATE_ON_WEB'  : 7,
+              'COLUMN_DATE_UPDATED' : 8,
               'SPREADSHEET_NAME'    : 'CZ Covid-19',
               'WORKSHEET_NAME'      : 'Data',
               'NEW_DATA'            : get_new_data_cz,
@@ -75,8 +76,8 @@ def czech():
 
 def slovak():
     config = {'COLUMN_CASES_ON_WEB' : 3,
-              'COLUMN_DATE_ON_WEB'  : 6,
-              'COLUMN_DATE_UPDATED' : 7,
+              'COLUMN_DATE_ON_WEB'  : 7,
+              'COLUMN_DATE_UPDATED' : 8,
               'SPREADSHEET_NAME'    : 'SK Covid-19',
               'WORKSHEET_NAME'      : 'Data',
               'NEW_DATA'            : get_new_data_sk,
