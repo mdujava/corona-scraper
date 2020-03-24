@@ -3,6 +3,7 @@ import requests
 import gspread
 import datetime
 import json
+import traceback
 from oauth2client.service_account import ServiceAccountCredentials
 from lxml import html
 
@@ -26,11 +27,11 @@ def update_data(config = None):
     ws = ss.worksheet(config['WORKSHEET_NAME'])
 
     today = datetime.datetime.today()
-    search_date = today.strftime('%-m/%-d/%Y')
+    search_date = today.strftime(config['DATE_FORMAT'])
     today_cell = ws.find(search_date)
 
-    if 'COLUMN_DATE_UPDATED' in config:
-        ws.update_cell(today_cell.row, config['COLUMN_DATE_UPDATED'], today.strftime('%d.%m.%Y, %H:%M'))
+    if 'COLUMN_DATE_UPDATED' in config and 'UPDATE_FORMAT' in config:
+        ws.update_cell(today_cell.row, config['COLUMN_DATE_UPDATED'], today.strftime(config['UPDATE_FORMAT']))
     ws.update_cell(today_cell.row, config['COLUMN_DATE_ON_WEB'], new_data[0])
     ws.update_cell(today_cell.row, config['COLUMN_CASES_ON_WEB'], new_data[1])
 
@@ -67,6 +68,8 @@ def czech():
     config = {'COLUMN_CASES_ON_WEB' : 3,
               'COLUMN_DATE_ON_WEB'  : 7,
               'COLUMN_DATE_UPDATED' : 8,
+              'DATE_FORMAT'         : '%d.%m.%Y',
+              'UPDATE_FORMAT'       : '%d.%m.%Y, %H:%M',
               'SPREADSHEET_NAME'    : 'CZ Covid-19',
               'WORKSHEET_NAME'      : 'Data',
               'NEW_DATA'            : get_new_data_cz,
@@ -78,6 +81,8 @@ def slovak():
     config = {'COLUMN_CASES_ON_WEB' : 3,
               'COLUMN_DATE_ON_WEB'  : 7,
               'COLUMN_DATE_UPDATED' : 8,
+              'DATE_FORMAT'         : '%d.%m.%Y',
+              'UPDATE_FORMAT'       : '%d.%m.%Y, %H:%M',
               'SPREADSHEET_NAME'    : 'SK Covid-19',
               'WORKSHEET_NAME'      : 'Data',
               'NEW_DATA'            : get_new_data_sk,
@@ -89,9 +94,9 @@ if __name__ == "__main__":
     try:
         slovak()
     except Exception as e:
-        print(e)
+        traceback.print_exc()
 
     try:
         czech()
     except Exception as e:
-        print(e)
+        traceback.print_exc()
