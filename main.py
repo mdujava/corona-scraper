@@ -8,6 +8,10 @@ import os
 from oauth2client.service_account import ServiceAccountCredentials
 from lxml import html
 
+#log in onece
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+client = gspread.authorize(creds)
 
 def update_data(config = None):
     cacheDirName  = os.path.expandvars('$XDG_CACHE_HOME')
@@ -36,11 +40,6 @@ def update_data(config = None):
             cacheFile.seek(0)
             cacheFile.write(json.dumps(new_data))
             cacheFile.truncate()
-
-
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
-    client = gspread.authorize(creds)
 
     ss = client.open(config['SPREADSHEET_NAME'])
 
