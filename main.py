@@ -4,12 +4,14 @@ import gspread
 import datetime
 import json
 import traceback
+import os
 from oauth2client.service_account import ServiceAccountCredentials
 from lxml import html
 
+
 def update_data(config = None):
-    if config is None:
-        return
+    cacheDirName  = os.path.expandvars('$XDG_CACHE_HOME')
+    cacheFileName = os.path.join(cacheDirName, config['CACHE_FILE'])
 
     new_data = config['NEW_DATA']()
 
@@ -17,6 +19,24 @@ def update_data(config = None):
         raise Exception('No data')
     if new_data[0] is None or int(new_data[1]) == 0:
         raise Exception('Invalid data: {}, {}'.format(new_data[0], new_data[1]))
+
+    skip = False
+
+    try:
+        with open(cacheFileName, 'r') as cacheFile:
+            cacheData = json.loads(cacheFile.read())
+            if cacheData[0] == new_data[0] and cacheData[1] == new_data[1]:
+                print("no change in {}.".format(config['CACHE_FILE']))
+                skip = True
+    except:
+        pass
+
+    if not skip:
+        with open(cacheFileName, 'w') as cacheFile:
+            cacheFile.seek(0)
+            cacheFile.write(json.dumps(new_data))
+            cacheFile.truncate()
+
 
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
@@ -30,10 +50,11 @@ def update_data(config = None):
     search_date = today.strftime(config['DATE_FORMAT'])
     today_cell = ws.find(search_date)
 
-    if 'COLUMN_DATE_UPDATED' in config and 'UPDATE_FORMAT' in config:
-        ws.update_cell(today_cell.row, config['COLUMN_DATE_UPDATED'], today.strftime(config['UPDATE_FORMAT']))
-    ws.update_cell(today_cell.row, config['COLUMN_DATE_ON_WEB'], new_data[0])
-    ws.update_cell(today_cell.row, config['COLUMN_CASES_ON_WEB'], new_data[1])
+    ws.update_cell(today_cell.row, config['COLUMN_DATE_UPDATED'], today.strftime(config['UPDATE_FORMAT']))
+
+    if not skip:
+        ws.update_cell(today_cell.row, config['COLUMN_DATE_ON_WEB'], new_data[0])
+        ws.update_cell(today_cell.row, config['COLUMN_CASES_ON_WEB'], new_data[1])
 
 
 def get_new_data_cz():
@@ -50,6 +71,7 @@ def get_new_data_cz():
     ret[0] = date.text.strip().replace(u'\xa0', ' ')
 
     ret[1] = counter.text.replace(" ", "")
+
     return ret
 
 def get_new_data_sk():
@@ -70,6 +92,7 @@ def czech():
               'COLUMN_DATE_UPDATED' : 8,
               'DATE_FORMAT'         : '%d.%m.%Y',
               'UPDATE_FORMAT'       : '%d.%m.%Y, %H:%M',
+              'CACHE_FILE'          : 'covid-cz',
               'SPREADSHEET_NAME'    : 'CZ Covid-19',
               'WORKSHEET_NAME'      : 'Data',
               'NEW_DATA'            : get_new_data_cz,
@@ -83,6 +106,7 @@ def slovak():
               'COLUMN_DATE_UPDATED' : 8,
               'DATE_FORMAT'         : '%d.%m.%Y',
               'UPDATE_FORMAT'       : '%d.%m.%Y, %H:%M',
+              'CACHE_FILE'          : 'covid-sk',
               'SPREADSHEET_NAME'    : 'SK Covid-19',
               'WORKSHEET_NAME'      : 'Data',
               'NEW_DATA'            : get_new_data_sk,
