@@ -5,58 +5,67 @@ import datetime
 import json
 import traceback
 import os
+import syslog
 from oauth2client.service_account import ServiceAccountCredentials
 from lxml import html
+
 
 #log in onece
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
 client = gspread.authorize(creds)
 
-def update_data(config = None):
+def updateData(config = None):
+    today = datetime.datetime.today()
+
     cacheDirName  = os.path.expandvars('$XDG_CACHE_HOME')
     cacheFileName = os.path.join(cacheDirName, config['CACHE_FILE'])
 
-    new_data = config['NEW_DATA']()
+    newData = config['NEW_DATA']()
 
-    if new_data is None:
+    newData.append(today.strftime('%s'))
+
+    if newData is None:
         raise Exception('No data')
-    if new_data[0] is None or int(new_data[1]) == 0:
-        raise Exception('Invalid data: {}, {}'.format(new_data[0], new_data[1]))
+    if newData[0] is None or int(newData[1]) == 0:
+        raise Exception('Invalid data: {}, {}'.format(newData[0], newData[1]))
 
     skip = False
+    skipTime = False
 
     try:
         with open(cacheFileName, 'r') as cacheFile:
             cacheData = json.loads(cacheFile.read())
-            if cacheData[0] == new_data[0] and cacheData[1] == new_data[1]:
-                print("no change in {}.".format(config['CACHE_FILE']))
+            if cacheData[0] == newData[0] and cacheData[1] == newData[1]:
+                syslog.syslog("no change in {}.".format(config['CACHE_FILE']))
                 skip = True
+                if int(cacheData[2]) + 3550 > int(newData[2]):
+                    skipTime = True
     except:
         pass
 
-    if not skip:
+    if not skipTime:
         with open(cacheFileName, 'w') as cacheFile:
             cacheFile.seek(0)
-            cacheFile.write(json.dumps(new_data))
+            cacheFile.write(json.dumps(newData))
             cacheFile.truncate()
 
     ss = client.open(config['SPREADSHEET_NAME'])
 
     ws = ss.worksheet(config['WORKSHEET_NAME'])
 
-    today = datetime.datetime.today()
-    search_date = today.strftime(config['DATE_FORMAT'])
-    today_cell = ws.find(search_date)
+    searchDate = today.strftime(config['DATE_FORMAT'])
+    todayCell = ws.find(searchDate)
 
-    ws.update_cell(today_cell.row, config['COLUMN_DATE_UPDATED'], today.strftime(config['UPDATE_FORMAT']))
+    if not skipTime:
+        ws.update_cell(todayCell.row, config['COLUMN_DATE_UPDATED'], today.strftime(config['UPDATE_FORMAT']))
 
     if not skip:
-        ws.update_cell(today_cell.row, config['COLUMN_DATE_ON_WEB'], new_data[0])
-        ws.update_cell(today_cell.row, config['COLUMN_CASES_ON_WEB'], new_data[1])
+        ws.update_cell(todayCell.row, config['COLUMN_DATE_ON_WEB'], newData[0])
+        ws.update_cell(todayCell.row, config['COLUMN_CASES_ON_WEB'], newData[1])
 
 
-def get_new_data_cz():
+def getNewDataCz():
     ret = [None, None]
 
     page = requests.get('https://onemocneni-aktualne.mzcr.cz/covid-19')
@@ -73,15 +82,15 @@ def get_new_data_cz():
 
     return ret
 
-def get_new_data_sk():
+def getNewDataSk():
     ret = [None, None]
 
     page = requests.get('https://virus-korona.sk/api.php')
 
-    decoded_json = json.loads(page.text)
+    decodedJson = json.loads(page.text)
 
-    ret[1] = decoded_json['tiles']['k26']['data']['d'][-1]['v']
-    ret[0] = decoded_json['tiles']['k26']['updated']
+    ret[1] = decodedJson['tiles']['k26']['data']['d'][-1]['v']
+    ret[0] = decodedJson['tiles']['k26']['updated']
 
     return ret
 
@@ -94,10 +103,10 @@ def czech():
               'CACHE_FILE'          : 'covid-cz',
               'SPREADSHEET_NAME'    : 'CZ Covid-19',
               'WORKSHEET_NAME'      : 'Data',
-              'NEW_DATA'            : get_new_data_cz,
+              'NEW_DATA'            : getNewDataCz,
               }
 
-    update_data(config)
+    updateData(config)
 
 def slovak():
     config = {'COLUMN_CASES_ON_WEB' : 3,
@@ -108,18 +117,20 @@ def slovak():
               'CACHE_FILE'          : 'covid-sk',
               'SPREADSHEET_NAME'    : 'SK Covid-19',
               'WORKSHEET_NAME'      : 'Data',
-              'NEW_DATA'            : get_new_data_sk,
+              'NEW_DATA'            : getNewDataSk,
               }
 
-    update_data(config)
+    updateData(config)
 
 if __name__ == "__main__":
+    syslog.syslog("Starting ...")
     try:
         slovak()
     except Exception as e:
-        traceback.print_exc()
+        syslog.syslog(syslog.LOG_ERR, traceback.print_exc())
 
     try:
         czech()
     except Exception as e:
-        traceback.print_exc()
+        syslog.syslog(syslog.LOG_ERR, traceback.print_exc())
+    syslog.syslog("Finished ...")
