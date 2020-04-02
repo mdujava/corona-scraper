@@ -10,15 +10,18 @@ from oauth2client.service_account import ServiceAccountCredentials
 from lxml import html
 
 
-#log in onece
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+# log in onece
+scope = ['https://spreadsheets.google.com/feeds',
+         'https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name(
+          'client_secret.json', scope)
 client = gspread.authorize(creds)
 
-def updateData(config = None):
+
+def updateData(config=None):
     today = datetime.datetime.today()
 
-    cacheDirName  = os.path.expandvars('$XDG_CACHE_HOME')
+    cacheDirName = os.path.expandvars('$XDG_CACHE_HOME')
     cacheFileName = os.path.join(cacheDirName, config['CACHE_FILE'])
 
     newData = config['NEW_DATA']()
@@ -57,12 +60,23 @@ def updateData(config = None):
     searchDate = today.strftime(config['DATE_FORMAT'])
     todayCell = ws.find(searchDate)
 
+    rowToUpdate = todayCell.row
+
+    if 'OFFSET_OF_DATA' in config:
+        rowToUpdate += config['OFFSET_OF_DATA']
+
     if not skipTime:
-        ws.update_cell(todayCell.row, config['COLUMN_DATE_UPDATED'], today.strftime(config['UPDATE_FORMAT']))
+        ws.update_cell(rowToUpdate,
+                       config['COLUMN_DATE_UPDATED'],
+                       today.strftime(config['UPDATE_FORMAT']))
 
     if not skip:
-        ws.update_cell(todayCell.row, config['COLUMN_DATE_ON_WEB'], newData[0])
-        ws.update_cell(todayCell.row, config['COLUMN_CASES_ON_WEB'], newData[1])
+        ws.update_cell(rowToUpdate,
+                       config['COLUMN_DATE_ON_WEB'],
+                       newData[0])
+        ws.update_cell(rowToUpdate,
+                       config['COLUMN_CASES_ON_WEB'],
+                       newData[1])
 
 
 def getNewDataCz():
@@ -73,14 +87,14 @@ def getNewDataCz():
 
     counter = tree.get_element_by_id("count-sick")
 
-    date = counter.getprevious() \
-           .getchildren()[0]
+    date = counter.getnext()
 
     ret[0] = date.text.strip().replace(u'\xa0', ' ')
 
     ret[1] = counter.text.replace(" ", "")
 
     return ret
+
 
 def getNewDataSk():
     ret = [None, None]
@@ -93,6 +107,7 @@ def getNewDataSk():
     ret[0] = decodedJson['tiles']['k26']['updated']
 
     return ret
+
 
 def czech():
     config = {'COLUMN_CASES_ON_WEB' : 3,
@@ -117,20 +132,25 @@ def slovak():
               'CACHE_FILE'          : 'covid-sk',
               'SPREADSHEET_NAME'    : 'SK Covid-19',
               'WORKSHEET_NAME'      : 'Data',
+              'OFFSET_OF_DATA'      : -1,
               'NEW_DATA'            : getNewDataSk,
               }
 
     updateData(config)
+
 
 if __name__ == "__main__":
     syslog.syslog("Starting ...")
     try:
         slovak()
     except Exception as e:
+        print(e)
         syslog.syslog(syslog.LOG_ERR, traceback.print_exc())
 
     try:
         czech()
     except Exception as e:
+        print(e)
         syslog.syslog(syslog.LOG_ERR, traceback.print_exc())
+
     syslog.syslog("Finished ...")
