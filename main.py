@@ -62,13 +62,13 @@ def updateData(config=None):
 
     rowToUpdate = todayCell.row
 
-    if 'OFFSET_OF_DATA' in config:
-        rowToUpdate += config['OFFSET_OF_DATA']
-
     if not skipTime:
         ws.update_cell(rowToUpdate,
                        config['COLUMN_DATE_UPDATED'],
                        today.strftime(config['UPDATE_FORMAT']))
+
+    if 'OFFSET_OF_DATA' in config:
+        rowToUpdate += config['OFFSET_OF_DATA']
 
     if not skip:
         ws.update_cell(rowToUpdate,
