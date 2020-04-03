@@ -67,20 +67,25 @@ def updateData(config=None):
                        config['COLUMN_DATE_UPDATED'],
                        today.strftime(config['UPDATE_FORMAT']))
 
-    if 'OFFSET_OF_DATA' in config:
-        rowToUpdate += config['OFFSET_OF_DATA']
 
     if not skip:
+        if 'OFFSET_OF_DATA' in config:
+            rowToUpdate += config['OFFSET_OF_DATA']
         ws.update_cell(rowToUpdate,
                        config['COLUMN_DATE_ON_WEB'],
                        newData[0])
         ws.update_cell(rowToUpdate,
                        config['COLUMN_CASES_ON_WEB'],
                        newData[1])
+        if 'COLUMN_TESTS_ON_WEB' in config:
+            ws.update_cell(rowToUpdate,
+                        config['COLUMN_TESTS_ON_WEB'],
+                        newData[2])
+
 
 
 def getNewDataCz():
-    ret = [None, None]
+    ret = [None, None, None]
 
     page = requests.get('https://onemocneni-aktualne.mzcr.cz/covid-19')
     tree = html.fromstring(page.content)
@@ -89,9 +94,12 @@ def getNewDataCz():
 
     date = counter.getnext()
 
+    counterTest = tree.get_element_by_id("count-test")
+
     ret[0] = date.text.strip().replace(u'\xa0', ' ')
 
     ret[1] = counter.text.replace(" ", "")
+    ret[2] = counterTest.text.replace(" ", "")
 
     return ret
 
@@ -111,6 +119,7 @@ def getNewDataSk():
 
 def czech():
     config = {'COLUMN_CASES_ON_WEB' : 3,
+              'COLUMN_TESTS_ON_WEB' : 10,
               'COLUMN_DATE_ON_WEB'  : 7,
               'COLUMN_DATE_UPDATED' : 8,
               'DATE_FORMAT'         : '%d.%m.%Y',
