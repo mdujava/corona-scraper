@@ -39,10 +39,10 @@ def updateData(config=None):
     try:
         with open(cacheFileName, 'r') as cacheFile:
             cacheData = json.loads(cacheFile.read())
-            if cacheData[0] == newData[0] and cacheData[1] == newData[1]:
+            if cacheData[0] == newData[0] and cacheData[1] == newData[1] and cacheData[2] == newData[2]:
                 syslog.syslog("no change in {}.".format(config['CACHE_FILE']))
                 skip = True
-                if int(cacheData[2]) + 3550 > int(newData[2]):
+                if int(cacheData[3]) + 3550 > int(newData[3]):
                     skipTime = True
     except:
         pass
@@ -63,14 +63,17 @@ def updateData(config=None):
     rowToUpdate = todayCell.row
 
     if not skipTime:
+        syslog.syslog("Writing update time to {}".format(config['SPREADSHEET_NAME']))
         ws.update_cell(rowToUpdate,
                        config['COLUMN_DATE_UPDATED'],
                        today.strftime(config['UPDATE_FORMAT']))
 
 
     if not skip:
+        syslog.syslog("Writing data to {}".format(config['SPREADSHEET_NAME']))
         if 'OFFSET_OF_DATA' in config:
             rowToUpdate += config['OFFSET_OF_DATA']
+
         ws.update_cell(rowToUpdate,
                        config['COLUMN_DATE_ON_WEB'],
                        newData[0])
@@ -105,14 +108,16 @@ def getNewDataCz():
 
 
 def getNewDataSk():
-    ret = [None, None]
+    ret = [None, None, None]
 
     page = requests.get('https://virus-korona.sk/api.php')
 
     decodedJson = json.loads(page.text)
 
-    ret[1] = decodedJson['tiles']['k26']['data']['d'][-1]['v']
-    ret[0] = decodedJson['tiles']['k26']['updated']
+    ret[1] = decodedJson['tiles']['k5']['data']['d'][-1]['v']
+    ret[0] = decodedJson['tiles']['k5']['updated']
+
+    ret[2] = decodedJson['tiles']['k6']['data']['d'][-1]['v']
 
     return ret
 
@@ -134,6 +139,7 @@ def czech():
 
 def slovak():
     config = {'COLUMN_CASES_ON_WEB' : 3,
+              'COLUMN_TESTS_ON_WEB' : 10,
               'COLUMN_DATE_ON_WEB'  : 7,
               'COLUMN_DATE_UPDATED' : 8,
               'DATE_FORMAT'         : '%d.%m.%Y',
@@ -154,12 +160,14 @@ if __name__ == "__main__":
         slovak()
     except Exception as e:
         print(e)
-        syslog.syslog(syslog.LOG_ERR, traceback.print_exc())
+        traceback.print_exc()
+        syslog.syslog(syslog.LOG_ERR, "error: {}".format(e))
 
     try:
         czech()
     except Exception as e:
         print(e)
-        syslog.syslog(syslog.LOG_ERR, traceback.print_exc())
+        traceback.print_exc()
+        syslog.syslog(syslog.LOG_ERR, "error: {}".format(e))
 
     syslog.syslog("Finished ...")
