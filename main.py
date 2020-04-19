@@ -39,13 +39,17 @@ def updateData(config=None):
     try:
         with open(cacheFileName, 'r') as cacheFile:
             cacheData = json.loads(cacheFile.read())
-            if cacheData[0] == newData[0] and cacheData[1] == newData[1] and cacheData[2] == newData[2]:
+            if (cacheData[0] == newData[0] and
+               cacheData[1] == newData[1] and
+               cacheData[2] == newData[2] and
+               cacheData[3] == newData[3] and
+               cacheData[4] == newData[4]):
                 syslog.syslog("no change in {}.".format(config['CACHE_FILE']))
                 skip = True
-                if int(cacheData[3]) + 3550 > int(newData[3]):
+                if int(cacheData[-1]) + 3550 > int(newData[-1]):
                     skipTime = True
-    except:
-        pass
+    except Exception as e:
+        syslog.syslog(syslog.LOG_ERR, "error: cachefile: {}".format(e))
 
     if not skipTime:
         with open(cacheFileName, 'w') as cacheFile:
@@ -53,9 +57,9 @@ def updateData(config=None):
             cacheFile.write(json.dumps(newData))
             cacheFile.truncate()
 
-    ss = client.open(config['SPREADSHEET_NAME'])
+    ss = client.open(config['SS_NAME'])
 
-    ws = ss.worksheet(config['WORKSHEET_NAME'])
+    ws = ss.worksheet(config['WS_NAME'])
 
     searchDate = today.strftime(config['DATE_FORMAT'])
     todayCell = ws.find(searchDate)
@@ -63,92 +67,107 @@ def updateData(config=None):
     rowToUpdate = todayCell.row
 
     if not skipTime:
-        syslog.syslog("Writing update time to {}".format(config['SPREADSHEET_NAME']))
+        syslog.syslog("Writing update time to {}".format(config['SS_NAME']))
         ws.update_cell(rowToUpdate,
-                       config['COLUMN_DATE_UPDATED'],
+                       config['COL_DATE_UPDATED'],
                        today.strftime(config['UPDATE_FORMAT']))
 
-
     if not skip:
-        syslog.syslog("Writing data to {}".format(config['SPREADSHEET_NAME']))
+        syslog.syslog("Writing data to {}".format(config['SS_NAME']))
         if 'OFFSET_OF_DATA' in config:
             rowToUpdate += config['OFFSET_OF_DATA']
 
-        ws.update_cell(rowToUpdate,
-                       config['COLUMN_DATE_ON_WEB'],
-                       newData[0])
-        ws.update_cell(rowToUpdate,
-                       config['COLUMN_CASES_ON_WEB'],
-                       newData[1])
-        if 'COLUMN_TESTS_ON_WEB' in config:
+        ws.update_cell(rowToUpdate, config['COL_DATE_ON_WEB'], newData[0])
+        ws.update_cell(rowToUpdate, config['COL_CASES_ON_WEB'], newData[1])
+        if 'COL_TESTS_ON_WEB' in config:
             ws.update_cell(rowToUpdate,
-                        config['COLUMN_TESTS_ON_WEB'],
-                        newData[2])
-
+                           config['COL_TESTS_ON_WEB'],
+                           newData[2])
+        if 'COL_DEATHS_ON_WEB' in config:
+            ws.update_cell(rowToUpdate,
+                           config['COL_DEATHS_ON_WEB'],
+                           newData[3])
+        if 'COL_RECOVERED_ON_WEB' in config:
+            ws.update_cell(rowToUpdate,
+                           config['COL_RECOVERED_ON_WEB'],
+                           newData[4])
 
 
 def getNewDataCz():
-    ret = [None, None, None]
+    ret = [None, None, None, None, None]
 
     page = requests.get('https://onemocneni-aktualne.mzcr.cz/covid-19')
+    page.raise_for_status()
+
     tree = html.fromstring(page.content)
 
-    counter = tree.get_element_by_id("count-sick")
+    counter_sick = tree.get_element_by_id("count-sick")
+    counter_dead = tree.get_element_by_id("count-dead")
+    counter_recover = tree.get_element_by_id("count-recover")
 
-    date = counter.getnext()
+    date = counter_sick.getnext()
 
-    counterTest = tree.get_element_by_id("count-test")
+    counter_tests = tree.get_element_by_id("count-test")
 
     ret[0] = date.text.strip().replace(u'\xa0', ' ')
 
-    ret[1] = counter.text.replace(" ", "")
-    ret[2] = counterTest.text.replace(" ", "")
+    ret[1] = counter_sick.text.replace(" ", "")
+    ret[2] = counter_tests.text.replace(" ", "")
+    ret[3] = counter_dead.text.replace(" ", "")
+    ret[4] = counter_recover.text.replace(" ", "")
 
     return ret
 
 
 def getNewDataSk():
-    ret = [None, None, None]
+    ret = [None, None, None, None, None]
 
     page = requests.get('https://virus-korona.sk/api.php')
+    page.raise_for_status()
 
     decodedJson = json.loads(page.text)
 
-    ret[1] = decodedJson['tiles']['k5']['data']['d'][-1]['v']
     ret[0] = decodedJson['tiles']['k5']['updated']
-
+    ret[1] = decodedJson['tiles']['k5']['data']['d'][-1]['v']
     ret[2] = decodedJson['tiles']['k6']['data']['d'][-1]['v']
+    ret[3] = decodedJson['tiles']['k8']['data']['d'][-1]['v']
+    ret[4] = decodedJson['tiles']['k7']['data']['d'][-1]['v']
 
     return ret
 
 
 def czech():
-    config = {'COLUMN_CASES_ON_WEB' : 3,
-              'COLUMN_TESTS_ON_WEB' : 10,
-              'COLUMN_DATE_ON_WEB'  : 7,
-              'COLUMN_DATE_UPDATED' : 8,
-              'DATE_FORMAT'         : '%d.%m.%Y',
-              'UPDATE_FORMAT'       : '%d.%m.%Y, %H:%M',
-              'CACHE_FILE'          : 'covid-cz',
-              'SPREADSHEET_NAME'    : 'CZ Covid-19',
-              'WORKSHEET_NAME'      : 'Data',
-              'NEW_DATA'            : getNewDataCz,
+    config = {'COL_CASES_ON_WEB':        3,
+              'COL_TESTS_ON_WEB':        10,
+              'COL_DEATHS_ON_WEB':       11,
+              'COL_RECOVERED_ON_WEB':    12,
+              'COL_DATE_ON_WEB':         7,
+              'COL_DATE_UPDATED':        8,
+              'DATE_FORMAT':             '%d.%m.%Y',
+              'UPDATE_FORMAT':           '%d.%m.%Y, %H:%M',
+              'CACHE_FILE':              'covid-cz',
+              'SS_NAME':                 'CZ Covid-19',
+              'WS_NAME':                 'Data',
+              'NEW_DATA':                getNewDataCz,
               }
 
     updateData(config)
 
+
 def slovak():
-    config = {'COLUMN_CASES_ON_WEB' : 3,
-              'COLUMN_TESTS_ON_WEB' : 10,
-              'COLUMN_DATE_ON_WEB'  : 7,
-              'COLUMN_DATE_UPDATED' : 8,
-              'DATE_FORMAT'         : '%d.%m.%Y',
-              'UPDATE_FORMAT'       : '%d.%m.%Y, %H:%M',
-              'CACHE_FILE'          : 'covid-sk',
-              'SPREADSHEET_NAME'    : 'SK Covid-19',
-              'WORKSHEET_NAME'      : 'Data',
-              'OFFSET_OF_DATA'      : -1,
-              'NEW_DATA'            : getNewDataSk,
+    config = {'COL_CASES_ON_WEB':        3,
+              'COL_TESTS_ON_WEB':        10,
+              'COL_DEATHS_ON_WEB':       11,
+              'COL_RECOVERED_ON_WEB':    12,
+              'COL_DATE_ON_WEB':         7,
+              'COL_DATE_UPDATED':        8,
+              'DATE_FORMAT':             '%d.%m.%Y',
+              'UPDATE_FORMAT':           '%d.%m.%Y, %H:%M',
+              'CACHE_FILE':              'covid-sk',
+              'SS_NAME':                 'SK Covid-19',
+              'WS_NAME':                 'Data',
+              'OFFSET_OF_DATA':          (-1),
+              'NEW_DATA':                getNewDataSk,
               }
 
     updateData(config)
