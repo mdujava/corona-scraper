@@ -129,7 +129,7 @@ def getNewDataSk():
 
     ret[0] = decodedJson['tiles']['k5']['updated']
     ret[1] = decodedJson['tiles']['k5']['data']['d'][-1]['v']
-    ret[2] = decodedJson['tiles']['k6']['data']['d'][-1]['v']
+    ret[2] = decodedJson['tiles']['k23']['data']['d'][-1]['v']
     ret[3] = decodedJson['tiles']['k8']['data']['d'][-1]['v']
     ret[4] = decodedJson['tiles']['k7']['data']['d'][-1]['v']
 
